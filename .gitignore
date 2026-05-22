@@ -1,0 +1,17 @@
+# 1. Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# 2. Go Build Outputs
+# =========================
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bookmark-manager-api
+/bin/
