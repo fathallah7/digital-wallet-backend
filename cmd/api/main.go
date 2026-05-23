@@ -8,7 +8,7 @@ import (
 
 	"github.com/fathallah7/wallet-service/internal/config"
 	"github.com/fathallah7/wallet-service/internal/database"
-	"github.com/fathallah7/wallet-service/internal/handler"
+	"github.com/fathallah7/wallet-service/internal/router"
 )
 
 func main() {
@@ -30,15 +30,13 @@ func main() {
 	defer db.Close()
 	log.Println("Successfully connected to the database")
 
-	// mux router
-	mux := http.NewServeMux()
-	// routes
-	mux.HandleFunc("GET /health", handler.HealthHandler)
+	// Initialize the router
+	router := router.Setup()
 
 	// start server
 	log.Printf("Server starting on port %s", cfg.Port)
 
-	err = http.ListenAndServe(cfg.Port, mux)
+	err = http.ListenAndServe(cfg.Port, router)
 	if err != nil {
 		log.Fatal("Error starting server:", err)
 	}
