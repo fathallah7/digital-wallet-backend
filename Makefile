@@ -1,4 +1,4 @@
-DB_URL=postgres://postgres:1234@localhost:5432/wallet-service?sslmode=disable
+DB_URL=postgres://postgres:1234@localhost:5432/wallet_service?sslmode=disable
 
 install-tools:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
