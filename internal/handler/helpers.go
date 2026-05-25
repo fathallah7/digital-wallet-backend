@@ -10,17 +10,23 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Response struct {
+type SuccessResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
+}
+
+type ErrorResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Errors  interface{} `json:"errors"`
 }
 
 // success
 func writeJSON(w http.ResponseWriter, status int, data any, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	err := json.NewEncoder(w).Encode(Response{
+	err := json.NewEncoder(w).Encode(SuccessResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -31,13 +37,13 @@ func writeJSON(w http.ResponseWriter, status int, data any, message string) {
 }
 
 // error
-func writeError(w http.ResponseWriter, status int, message string) {
+func writeError(w http.ResponseWriter, status int, errors any, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(Response{
+	json.NewEncoder(w).Encode(ErrorResponse{
 		Success: false,
 		Message: message,
-		Data:    nil,
+		Errors:  errors,
 	})
 }
 
