@@ -15,18 +15,18 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, nil, "invalid request body")
 		return
 	}
 
-	if req.Email == "" || req.Phone == "" || req.FirstName == "" {
-		writeError(w, http.StatusBadRequest, "missing required fields")
+	if errors := req.Validate(); len(errors) > 0 {
+		writeError(w, http.StatusBadRequest, errors, "validation failed")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "something went wrong")
+		writeError(w, http.StatusInternalServerError, nil, "something went wrong")
 		return
 	}
 	hashStr := string(hash)
@@ -40,13 +40,13 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.userStore.CreateUser(r.Context(), u); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not create user")
+		writeError(w, http.StatusInternalServerError, nil, "could not create user")
 		return
 	}
 
 	token, err := generateToken(u.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not generate token")
+		writeError(w, http.StatusInternalServerError, nil, "could not generate token")
 		return
 	}
 
@@ -69,35 +69,35 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, nil, "invalid request body")
 		return
 	}
 
-	if req.Email == "" || req.Password == "" {
-		writeError(w, http.StatusBadRequest, "missing required fields")
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		writeError(w, http.StatusBadRequest, validationErrors, "validation failed")
 		return
 	}
 
 	u, err := h.userStore.GetUserByEmail(r.Context(), req.Email)
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "something went wrong")
+		writeError(w, http.StatusInternalServerError, nil, "something went wrong")
 		return
 	}
 
 	if u == nil {
-		writeError(w, http.StatusUnauthorized, "no account found by this email")
+		writeError(w, http.StatusUnauthorized, nil, "no account found by this email")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*u.PasswordHash), []byte(req.Password)); err != nil {
-		writeError(w, http.StatusUnauthorized, "wrong password")
+		writeError(w, http.StatusUnauthorized, nil, "wrong password")
 		return
 	}
 
 	token, err := generateToken(u.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not generate token")
+		writeError(w, http.StatusInternalServerError, nil, "could not generate token")
 		return
 	}
 
