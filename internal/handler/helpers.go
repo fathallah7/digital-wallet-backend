@@ -19,7 +19,7 @@ type ErrorResponse struct {
 }
 
 // success
-func writeJSON(w http.ResponseWriter, status int, data any, message string) {
+func WriteJSON(w http.ResponseWriter, status int, data any, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	err := json.NewEncoder(w).Encode(SuccessResponse{
@@ -33,7 +33,7 @@ func writeJSON(w http.ResponseWriter, status int, data any, message string) {
 }
 
 // error
-func writeError(w http.ResponseWriter, status int, errors any, message string) {
+func WriteError(w http.ResponseWriter, status int, errors any, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ErrorResponse{
