@@ -8,16 +8,21 @@ import (
 )
 
 type Handler struct {
-	db          *sql.DB
-	authService *service.AuthService
+	db            *sql.DB
+	authService   *service.AuthService
+	walletService *service.WalletService
 }
 
 func New(db *sql.DB) *Handler {
-	userStore   := store.NewUserStore(db)
+	userStore := store.NewUserStore(db)
+	walletStore := store.NewWalletStore(db)
+
 	authService := service.NewAuthService(userStore)
+	walletService := service.NewWalletService(walletStore)
 
 	return &Handler{
-		db:          db,
-		authService: authService,
+		db:            db,
+		authService:   authService,
+		walletService: walletService,
 	}
 }
