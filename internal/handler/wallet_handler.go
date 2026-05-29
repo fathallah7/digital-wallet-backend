@@ -73,3 +73,27 @@ func (h *Handler) GetWalletByID(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSON(w, http.StatusOK, res, "wallet retrieved successfully")
 }
+
+// set default wallet
+func (h *Handler) SetDefaultWallet(w http.ResponseWriter, r *http.Request) {
+
+	userId := r.Context().Value("user_id").(string)
+	if userId == "" {
+		WriteError(w, http.StatusBadRequest, nil, "user id is required")
+		return
+	}
+
+	walletID := r.PathValue("wallet_id")
+	if walletID == "" {
+		WriteError(w, http.StatusBadRequest, nil, "wallet id is required")
+		return
+	}
+
+	err := h.walletService.SetDefaultWallet(r.Context(), walletID, userId)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, err, "failed to set default wallet")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, nil, "default wallet set successfully")
+}

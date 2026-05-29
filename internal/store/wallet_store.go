@@ -68,3 +68,9 @@ func (s *WalletStore) GetWalletByID(ctx context.Context, walletID string, userID
 	}
 	return &wallet, nil
 }
+
+func (s *WalletStore) SetDefaultWallet(ctx context.Context, userID string, walletID string) error {
+	query := `UPDATE wallets SET is_default = CASE WHEN id = $1 THEN true ELSE false END WHERE user_id = $2`
+	_, err := s.db.ExecContext(ctx, query, walletID, userID)
+	return err
+}

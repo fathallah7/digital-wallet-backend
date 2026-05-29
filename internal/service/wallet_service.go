@@ -74,6 +74,14 @@ func (s *WalletService) GetWalletByID(ctx context.Context, walletID string, user
 	return wallet, nil
 }
 
+func (s *WalletService) SetDefaultWallet(ctx context.Context, walletID string, userID string) map[string]string {
+	err := s.walletStore.SetDefaultWallet(ctx, userID, walletID)
+	if err != nil {
+		return map[string]string{"set_default_wallet": "failed to set default wallet"}
+	}
+	return nil
+}
+
 func validateCreateWalletRequest(req *dto.WalletRequest) map[string]string {
 	errors := make(map[string]string)
 
