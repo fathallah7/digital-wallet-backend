@@ -61,6 +61,19 @@ func (s *WalletService) GetUserWallets(ctx context.Context, userID string) ([]*d
 	return wallets, nil
 }
 
+func (s *WalletService) GetWalletByID(ctx context.Context, walletID string, userID string) (*dto.WalletResponse, map[string]string) {
+	if strings.TrimSpace(walletID) == "" {
+		return nil, map[string]string{"wallet_id": "wallet_id is required"}
+	}
+
+	wallet, err := s.walletStore.GetWalletByID(ctx, walletID, userID)
+	if err != nil {
+		return nil, map[string]string{"get_wallet": "no wallet found"}
+	}
+
+	return wallet, nil
+}
+
 func validateCreateWalletRequest(req *dto.WalletRequest) map[string]string {
 	errors := make(map[string]string)
 

@@ -20,7 +20,7 @@ func Setup(h *handler.Handler) *http.ServeMux {
 	// Wallet routes
 	mux.Handle("POST /wallet", middleware.AuthMiddleware(http.HandlerFunc(h.CreateWallet)))
 	mux.Handle("GET /wallets", middleware.AuthMiddleware(http.HandlerFunc(h.GetUserWallets)))
-	
+	mux.Handle("GET /wallet/{wallet_id}", middleware.AuthMiddleware(http.HandlerFunc(h.GetWalletByID)))
 
 	return mux
 }

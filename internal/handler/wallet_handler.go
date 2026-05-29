@@ -37,13 +37,37 @@ func (h *Handler) CreateWallet(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetUserWallets(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	if userID == "" {
-		WriteError(w, http.StatusBadRequest, nil, "")
+		WriteError(w, http.StatusBadRequest, nil, "user id is required")
 		return
 	}
 
 	res, err := h.walletService.GetUserWallets(r.Context(), userID)
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, err, "validation failed")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, res, "wallet retrieved successfully")
+}
+
+// get wallet by id
+func (h *Handler) GetWalletByID(w http.ResponseWriter, r *http.Request) {
+
+	userId := r.Context().Value("user_id").(string)
+	if userId == "" {
+		WriteError(w, http.StatusBadRequest, nil, "user id is required")
+		return
+	}
+
+	walletID := r.PathValue("wallet_id")
+	if walletID == "" {
+		WriteError(w, http.StatusBadRequest, nil, "wallet id is required")
+		return
+	}
+
+	res, err := h.walletService.GetWalletByID(r.Context(), walletID, userId)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, err, "wallet not found")
 		return
 	}
 

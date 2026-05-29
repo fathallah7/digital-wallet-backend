@@ -29,13 +29,16 @@ func (s *WalletStore) CreateWallet(ctx context.Context, req *dto.WalletRequest) 
 
 func (s *WalletStore) GetUserWalletCount(ctx context.Context, userID string) (int, error) {
 	query := `SELECT COUNT(*) FROM wallets WHERE user_id = $1`
+
 	var count int
 	err := s.db.QueryRowContext(ctx, query, userID).Scan(&count)
+
 	return count, err
 }
 
 func (s *WalletStore) GetUserWallets(ctx context.Context, userID string) ([]*dto.WalletResponse, error) {
 	query := `SELECT id, user_id, name, balance, is_default, created_at FROM wallets WHERE user_id = $1`
+
 	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -50,5 +53,18 @@ func (s *WalletStore) GetUserWallets(ctx context.Context, userID string) ([]*dto
 		}
 		wallets = append(wallets, &wallet)
 	}
+
 	return wallets, nil
+}
+
+func (s *WalletStore) GetWalletByID(ctx context.Context, walletID string, userID string) (*dto.WalletResponse, error) {
+	var wallet dto.WalletResponse
+	query := `SELECT id, user_id, name, balance, is_default, created_at FROM wallets WHERE id = $1 AND user_id = $2`
+
+	row := s.db.QueryRowContext(ctx, query, walletID, userID)
+
+	if err := row.Scan(&wallet.ID, &wallet.UserID, &wallet.Name, &wallet.Balance, &wallet.IsDefault, &wallet.CreatedAt); err != nil {
+		return nil, err
+	}
+	return &wallet, nil
 }
