@@ -58,3 +58,25 @@ func (s *TransactionsService) Deposit(ctx context.Context, userID string, req *d
 
 	return nil
 }
+
+func (s *TransactionsService) GetUserTransactions(ctx context.Context, userID string) ([]*dto.TransactionResponse, map[string]string) {
+	transactions, err := s.transactionsStore.GetUserTransactions(ctx, userID)
+	if err != nil {
+		return nil, map[string]string{"general": "failed to get transactions"}
+	}
+
+	var res []*dto.TransactionResponse
+	for _, t := range transactions {
+		res = append(res, &dto.TransactionResponse{
+			ID:           t.ID,
+			FromWalletID: t.FromWalletID,
+			ToWalletID:   t.ToWalletID,
+			Amount:       t.Amount,
+			Type:         t.Type,
+			Status:       t.Status,
+			CreatedAt:    t.CreatedAt,
+		})
+	}
+
+	return res, nil
+}

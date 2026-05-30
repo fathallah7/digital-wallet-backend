@@ -26,5 +26,7 @@ func Setup(h *handler.Handler) *http.ServeMux {
 	// Transaction routes
 	mux.Handle("POST /transactions/transfer", middleware.AuthMiddleware(http.HandlerFunc(h.Transfer)))
 	mux.Handle("POST /transactions/deposit", middleware.AuthMiddleware(http.HandlerFunc(h.Deposit)))
+	mux.Handle("GET /transactions", middleware.AuthMiddleware(http.HandlerFunc(h.GetTransactions)))
+
 	return mux
 }

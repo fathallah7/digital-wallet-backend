@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"github.com/fathallah7/wallet-service/internal/model"
 )
 
 type TransactionsStore struct {
@@ -78,4 +80,30 @@ func (s *TransactionsStore) Deposit(ctx context.Context, walletID string, amount
 	}
 
 	return tx.Commit()
+}
+
+func (s *TransactionsStore) GetUserTransactions(ctx context.Context, userID string) ([]*model.Transaction, error) {
+	query := `
+		SELECT t.id, t.from_wallet_id, t.to_wallet_id, t.amount, t.type, t.status, t.created_at
+		FROM transactions t
+		JOIN wallets w ON w.id = t.to_wallet_id OR w.id = t.from_wallet_id
+		WHERE w.user_id = $1
+		ORDER BY t.created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []*model.Transaction
+	for rows.Next() {
+		var t model.Transaction
+		if err := rows.Scan(&t.ID, &t.FromWalletID, &t.ToWalletID, &t.Amount, &t.Type, &t.Status, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, &t)
+	}
+
+	return transactions, nil
 }

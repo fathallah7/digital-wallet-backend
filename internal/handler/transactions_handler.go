@@ -44,3 +44,15 @@ func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSON(w, http.StatusOK, nil, "deposit successful")
 }
+
+func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+
+	res, err := h.transactionsService.GetUserTransactions(r.Context(), userID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, err, "failed to get transactions")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, res, "transactions retrieved successfully")
+}
