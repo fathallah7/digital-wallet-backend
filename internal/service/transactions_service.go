@@ -41,3 +41,20 @@ func (s *TransactionsService) Transfer(ctx context.Context, userID string, req *
 
 	return nil
 }
+
+func (s *TransactionsService) Deposit(ctx context.Context, userID string, req *dto.DepositRequest) map[string]string {
+	if req.Amount <= 0 {
+		return map[string]string{"amount": "amount must be greater than 0"}
+	}
+
+	wallet, err := s.walletStore.GetWalletByID(ctx, req.WalletID, userID)
+	if err != nil || wallet == nil {
+		return map[string]string{"wallet": "wallet not found"}
+	}
+
+	if err := s.transactionsStore.Deposit(ctx, req.WalletID, req.Amount); err != nil {
+		return map[string]string{"general": "deposit failed"}
+	}
+
+	return nil
+}

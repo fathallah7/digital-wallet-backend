@@ -52,3 +52,30 @@ func (s *TransactionsStore) CreateTransfer(ctx context.Context, fromWalletID, to
 
 	return tx.Commit()
 }
+
+func (s *TransactionsStore) Deposit(ctx context.Context, walletID string, amount float64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx,
+		`UPDATE wallets SET balance = balance + $1 WHERE id = $2`,
+		amount, walletID,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO transactions (to_wallet_id, amount, type, status)
+		 VALUES ($1, $2, 'deposit', 'completed')`,
+		walletID, amount,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

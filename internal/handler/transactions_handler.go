@@ -27,3 +27,20 @@ func (h *Handler) Transfer(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSON(w, http.StatusOK, nil, "transfer successful")
 }
+
+func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+
+	var req dto.DepositRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, nil, "invalid request body")
+		return
+	}
+
+	if err := h.transactionsService.Deposit(r.Context(), userID, &req); err != nil {
+		WriteError(w, http.StatusBadRequest, err, "deposit failed")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, nil, "deposit successful")
+}
