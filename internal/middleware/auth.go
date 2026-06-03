@@ -3,16 +3,23 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"os"
 	"strings"
 
-	"github.com/fathallah7/wallet-service/internal/handler"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/fathallah7/wallet-service/internal/handler"
 )
 
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+type AuthMiddleware struct {
+	jwtSecret []byte
+}
 
+func NewAuthMiddleware(jwtSecret []byte) *AuthMiddleware {
+	return &AuthMiddleware{jwtSecret: jwtSecret}
+}
+
+func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 
 		if authHeader == "" {
@@ -28,18 +35,26 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		tokenStr := parts[1]
 
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
+			return m.jwtSecret, nil
 		})
 		if err != nil || !token.Valid {
 			handler.WriteError(w, http.StatusUnauthorized, nil, "invalid token")
 			return
 		}
 
-		claims := token.Claims.(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			handler.WriteError(w, http.StatusUnauthorized, nil, "invalid token claims")
+			return
+		}
 
-		ctx := context.WithValue(r.Context(), "user_id", userID)
+		userID, ok := claims["user_id"].(string)
+		if !ok {
+			handler.WriteError(w, http.StatusUnauthorized, nil, "invalid user id in token")
+			return
+		}
 
+		ctx := context.WithValue(r.Context(), handler.UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

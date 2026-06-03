@@ -1,18 +1,16 @@
 package service
 
 import (
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// jwt token
-func generateToken(userID string) (string, error) {
+func generateToken(userID string, jwtSecret []byte) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	return token.SignedString(jwtSecret)
 }

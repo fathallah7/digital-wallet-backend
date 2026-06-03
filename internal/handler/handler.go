@@ -7,6 +7,10 @@ import (
 	"github.com/fathallah7/wallet-service/internal/store"
 )
 
+type contextKey string
+
+const UserIDKey contextKey = "user_id"
+
 type Handler struct {
 	db                  *sql.DB
 	authService         *service.AuthService
@@ -14,12 +18,12 @@ type Handler struct {
 	transactionsService *service.TransactionsService
 }
 
-func New(db *sql.DB) *Handler {
+func New(db *sql.DB, jwtSecret []byte) *Handler {
 	userStore := store.NewUserStore(db)
 	walletStore := store.NewWalletStore(db)
 	transactionStore := store.NewTransactionsStore(db)
 
-	authService := service.NewAuthService(userStore)
+	authService := service.NewAuthService(userStore, jwtSecret)
 	walletService := service.NewWalletService(walletStore)
 	transactionsService := service.NewTransactionsService(transactionStore, walletStore)
 

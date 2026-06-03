@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/mail"
 	"strings"
 
+	"github.com/fathallah7/wallet-service/internal/apperrors"
 	"github.com/fathallah7/wallet-service/internal/dto"
 	"github.com/fathallah7/wallet-service/internal/model"
 	"github.com/fathallah7/wallet-service/internal/store"
@@ -13,50 +15,62 @@ import (
 
 type AuthService struct {
 	userStore *store.UserStore
+	jwtSecret []byte
 }
 
-func NewAuthService(userStore *store.UserStore) *AuthService {
-	return &AuthService{userStore: userStore}
+func NewAuthService(userStore *store.UserStore, jwtSecret []byte) *AuthService {
+	return &AuthService{userStore: userStore, jwtSecret: jwtSecret}
 }
 
-func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, map[string]string) {
-	// 1. Validate
-	if err := validateRegister(req); len(err) > 0 {
-		return nil, err
+func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, error) {
+	if errs := validateRegister(req); len(errs) > 0 {
+		return nil, errs
 	}
 
-	// 2. Hash password
+	user, err := s.userStore.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("check email: %w", err)
+	}
+	if user != nil {
+		return nil, apperrors.ErrEmailTaken
+	}
+
+	if req.Phone != "" {
+		user, err = s.userStore.GetUserByPhone(ctx, req.Phone)
+		if err != nil {
+			return nil, fmt.Errorf("check phone: %w", err)
+		}
+		if user != nil {
+			return nil, apperrors.ErrPhoneTaken
+		}
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, map[string]string{"general": "something went wrong"}
+		return nil, fmt.Errorf("hash password: %w", err)
 	}
 	hashStr := string(hash)
 
-	// 3. Create user
+	var phone *string
+	if req.Phone != "" {
+		phone = &req.Phone
+	}
+
 	u := &model.User{
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
 		Email:        req.Email,
-		Phone:        &req.Phone,
+		Phone:        phone,
 		PasswordHash: &hashStr,
 	}
 
-	if user, err := s.userStore.GetUserByEmail(ctx, u.Email); user != nil || err != nil {
-		return nil, map[string]string{"email": "email is already taken"}
-	}
-
-	if user, err := s.userStore.GetUserByPhone(ctx, *u.Phone); user != nil || err != nil {
-		return nil, map[string]string{"phone": "phone number is already taken"}
-	}
-
 	if err := s.userStore.CreateUser(ctx, u); err != nil {
-		return nil, map[string]string{"general": "something went wrong"}
+		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	// 4. Generate token
-	token, err := generateToken(u.ID)
+	token, err := generateToken(u.ID, s.jwtSecret)
 	if err != nil {
-		return nil, map[string]string{"general": "something went wrong"}
+		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
 	return &dto.AuthResponse{
@@ -71,21 +85,22 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 	}, nil
 }
 
-// Login
-func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.AuthResponse, map[string]string) {
-
+func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.AuthResponse, error) {
 	u, err := s.userStore.GetUserByEmail(ctx, req.Email)
-	if u == nil || err != nil {
-		return nil, map[string]string{"email": "no account found by this email"}
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if u == nil {
+		return nil, apperrors.ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*u.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, map[string]string{"password": "wrong password"}
+		return nil, apperrors.ErrInvalidCredentials
 	}
 
-	token, err := generateToken(u.ID)
+	token, err := generateToken(u.ID, s.jwtSecret)
 	if err != nil {
-		return nil, map[string]string{"general": "something went wrong"}
+		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
 	return &dto.AuthResponse{
@@ -100,23 +115,23 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	}, nil
 }
 
-func validateRegister(req *dto.RegisterRequest) map[string]string {
-	errors := make(map[string]string)
+func validateRegister(req *dto.RegisterRequest) apperrors.ValidationErrors {
+	var errors apperrors.ValidationErrors
 
 	if len(strings.TrimSpace(req.FirstName)) < 2 {
-		errors["firstName"] = "first name must be at least 2 characters"
+		errors = append(errors, apperrors.FieldError{Field: "first_name", Message: "first name must be at least 2 characters"})
 	}
 	if len(strings.TrimSpace(req.LastName)) < 2 {
-		errors["lastName"] = "last name must be at least 2 characters"
+		errors = append(errors, apperrors.FieldError{Field: "last_name", Message: "last name must be at least 2 characters"})
 	}
 	if _, err := mail.ParseAddress(req.Email); err != nil {
-		errors["email"] = "invalid email format"
+		errors = append(errors, apperrors.FieldError{Field: "email", Message: "invalid email format"})
 	}
-	if len(req.Phone) < 10 {
-		errors["phone"] = "invalid phone number"
+	if req.Phone != "" && len(req.Phone) < 10 {
+		errors = append(errors, apperrors.FieldError{Field: "phone", Message: "invalid phone number"})
 	}
 	if len(req.Password) < 8 {
-		errors["password"] = "password must be at least 8 characters"
+		errors = append(errors, apperrors.FieldError{Field: "password", Message: "password must be at least 8 characters"})
 	}
 
 	return errors
