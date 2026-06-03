@@ -45,13 +45,13 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (*model.Us
 
 func (s *UserStore) GetUserByPhone(ctx context.Context, phone string) (*model.User, error) {
 	query := `
-		SELECT id, first_name, last_name, email, phone, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, password_hash, created_at, updated_at
 		FROM users WHERE phone = $1
 	`
 	u := &model.User{}
 	err := s.db.QueryRowContext(ctx, query, phone).Scan(
 		&u.ID, &u.FirstName, &u.LastName,
-		&u.Email, &u.Phone,
+		&u.Email, &u.Phone, &u.PasswordHash,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {

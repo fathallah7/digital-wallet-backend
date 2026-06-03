@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 
+	"github.com/shopspring/decimal"
+
+	"github.com/fathallah7/wallet-service/internal/apperrors"
 	"github.com/fathallah7/wallet-service/internal/model"
 )
 
@@ -16,22 +18,25 @@ func NewTransactionsStore(db *sql.DB) *TransactionsStore {
 	return &TransactionsStore{db: db}
 }
 
-func (s *TransactionsStore) CreateTransfer(ctx context.Context, fromWalletID, toWalletID string, amount float64) error {
-
+func (s *TransactionsStore) CreateTransfer(ctx context.Context, fromWalletID, toWalletID string, amount decimal.Decimal) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-	var balance float64
+	var balance decimal.Decimal
 	err = tx.QueryRowContext(ctx, "SELECT balance FROM wallets WHERE id = $1 FOR UPDATE", fromWalletID).Scan(&balance)
 	if err != nil {
 		return err
 	}
 
-	if balance < amount {
-		return errors.New("insufficient balance")
+	if balance.LessThan(amount) {
+		return apperrors.ErrInsufficientBalance
 	}
 
 	_, err = tx.ExecContext(ctx, "UPDATE wallets SET balance = balance - $1 WHERE id = $2", amount, fromWalletID)
@@ -55,12 +60,16 @@ func (s *TransactionsStore) CreateTransfer(ctx context.Context, fromWalletID, to
 	return tx.Commit()
 }
 
-func (s *TransactionsStore) Deposit(ctx context.Context, walletID string, amount float64) error {
+func (s *TransactionsStore) Deposit(ctx context.Context, walletID string, amount decimal.Decimal) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	_, err = tx.ExecContext(ctx,
 		`UPDATE wallets SET balance = balance + $1 WHERE id = $2`,
@@ -104,6 +113,5 @@ func (s *TransactionsStore) GetUserTransactions(ctx context.Context, userID stri
 		}
 		transactions = append(transactions, &t)
 	}
-
 	return transactions, nil
 }

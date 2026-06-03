@@ -7,54 +7,47 @@ import (
 	"github.com/fathallah7/wallet-service/internal/dto"
 )
 
-// create wallet
 func (h *Handler) CreateWallet(w http.ResponseWriter, r *http.Request) {
-	var req dto.WalletRequest
-
-	userId := r.Context().Value("user_id").(string)
-	if userId == "" {
+	userID := r.Context().Value(UserIDKey).(string)
+	if userID == "" {
 		WriteError(w, http.StatusBadRequest, nil, "user id is required")
 		return
 	}
 
-	req.UserID = userId
-
+	var req dto.WalletRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, nil, "invalid request body")
 		return
 	}
 
+	req.UserID = userID
 	res, err := h.walletService.CreateWallet(r.Context(), &req)
-	if err != nil {
-		WriteError(w, http.StatusBadRequest, err, "validation failed")
+	if WriteServiceError(w, err) {
 		return
 	}
 
 	WriteJSON(w, http.StatusOK, res, "wallet created successfully")
 }
 
-// get user wallets
 func (h *Handler) GetUserWallets(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID := r.Context().Value(UserIDKey).(string)
 	if userID == "" {
 		WriteError(w, http.StatusBadRequest, nil, "user id is required")
 		return
 	}
 
 	res, err := h.walletService.GetUserWallets(r.Context(), userID)
-	if err != nil {
-		WriteError(w, http.StatusBadRequest, err, "validation failed")
+	if WriteServiceError(w, err) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, res, "wallet retrieved successfully")
+	WriteJSON(w, http.StatusOK, res, "wallets retrieved successfully")
 }
 
-// get wallet by id
 func (h *Handler) GetWalletByID(w http.ResponseWriter, r *http.Request) {
-
-	userId := r.Context().Value("user_id").(string)
-	if userId == "" {
+	userID := r.Context().Value(UserIDKey).(string)
+	if userID == "" {
 		WriteError(w, http.StatusBadRequest, nil, "user id is required")
 		return
 	}
@@ -65,20 +58,17 @@ func (h *Handler) GetWalletByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.walletService.GetWalletByID(r.Context(), walletID, userId)
-	if err != nil {
-		WriteError(w, http.StatusNotFound, err, "wallet not found")
+	res, err := h.walletService.GetWalletByID(r.Context(), walletID, userID)
+	if WriteServiceError(w, err) {
 		return
 	}
 
 	WriteJSON(w, http.StatusOK, res, "wallet retrieved successfully")
 }
 
-// set default wallet
 func (h *Handler) SetDefaultWallet(w http.ResponseWriter, r *http.Request) {
-
-	userId := r.Context().Value("user_id").(string)
-	if userId == "" {
+	userID := r.Context().Value(UserIDKey).(string)
+	if userID == "" {
 		WriteError(w, http.StatusBadRequest, nil, "user id is required")
 		return
 	}
@@ -89,9 +79,8 @@ func (h *Handler) SetDefaultWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.walletService.SetDefaultWallet(r.Context(), walletID, userId)
-	if err != nil {
-		WriteError(w, http.StatusNotFound, err, "failed to set default wallet")
+	err := h.walletService.SetDefaultWallet(r.Context(), walletID, userID)
+	if WriteServiceError(w, err) {
 		return
 	}
 

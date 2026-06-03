@@ -2,10 +2,14 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
-	"time"
 
+	"github.com/shopspring/decimal"
+
+	"github.com/fathallah7/wallet-service/internal/apperrors"
 	"github.com/fathallah7/wallet-service/internal/dto"
+	"github.com/fathallah7/wallet-service/internal/model"
 	"github.com/fathallah7/wallet-service/internal/store"
 )
 
@@ -19,80 +23,101 @@ func NewWalletService(walletStore *store.WalletStore) *WalletService {
 	}
 }
 
-func (s *WalletService) CreateWallet(ctx context.Context, req *dto.WalletRequest) (*dto.WalletResponse, map[string]string) {
-
-	if err := validateCreateWalletRequest(req); len(err) > 0 {
-		return nil, err
+func (s *WalletService) CreateWallet(ctx context.Context, req *dto.WalletRequest) (*dto.WalletResponse, error) {
+	if errs := validateCreateWalletRequest(req); len(errs) > 0 {
+		return nil, errs
 	}
 
 	walletCount, err := s.walletStore.GetUserWalletCount(ctx, req.UserID)
 	if err != nil {
-		return nil, map[string]string{"wallet_count": "failed to get wallet count"}
+		return nil, fmt.Errorf("get wallet count: %w", err)
 	}
 	if walletCount >= 3 {
-		return nil, map[string]string{"wallet_count": "maximum number of wallets reached (3)"}
+		return nil, apperrors.ErrWalletLimit
 	}
 
-	walletId, err := s.walletStore.CreateWallet(ctx, req)
-	if err != nil {
-		return nil, map[string]string{"create_wallet": "failed to create wallet"}
+	wallet := &model.Wallet{
+		UserID:    req.UserID,
+		Name:      req.Name,
+		Balance:   decimal.NewFromInt(0),
+		IsDefault: false,
+	}
+
+	if err := s.walletStore.CreateWallet(ctx, wallet); err != nil {
+		return nil, fmt.Errorf("create wallet: %w", err)
 	}
 
 	return &dto.WalletResponse{
-		ID:        walletId,
-		UserID:    req.UserID,
-		Name:      req.Name,
-		Balance:   0,
-		IsDefault: false,
-		CreatedAt: time.Now(),
+		ID:        wallet.ID,
+		UserID:    wallet.UserID,
+		Name:      wallet.Name,
+		Balance:   wallet.Balance,
+		IsDefault: wallet.IsDefault,
+		CreatedAt: wallet.CreatedAt,
 	}, nil
 }
 
-func (s *WalletService) GetUserWallets(ctx context.Context, userID string) ([]*dto.WalletResponse, map[string]string) {
+func (s *WalletService) GetUserWallets(ctx context.Context, userID string) ([]*dto.WalletResponse, error) {
 	if strings.TrimSpace(userID) == "" {
-		return nil, map[string]string{"user_id": "user_id is required"}
+		return nil, apperrors.ValidationErrors{{Field: "user_id", Message: "user id is required"}}
 	}
 
 	wallets, err := s.walletStore.GetUserWallets(ctx, userID)
 	if err != nil {
-		return nil, map[string]string{"get_wallets": "failed to get wallets"}
+		return nil, fmt.Errorf("get wallets: %w", err)
 	}
 
-	return wallets, nil
+	var res []*dto.WalletResponse
+	for _, w := range wallets {
+		res = append(res, &dto.WalletResponse{
+			ID:        w.ID,
+			UserID:    w.UserID,
+			Name:      w.Name,
+			Balance:   w.Balance,
+			IsDefault: w.IsDefault,
+			CreatedAt: w.CreatedAt,
+		})
+	}
+	return res, nil
 }
 
-func (s *WalletService) GetWalletByID(ctx context.Context, walletID string, userID string) (*dto.WalletResponse, map[string]string) {
+func (s *WalletService) GetWalletByID(ctx context.Context, walletID string, userID string) (*dto.WalletResponse, error) {
 	if strings.TrimSpace(walletID) == "" {
-		return nil, map[string]string{"wallet_id": "wallet_id is required"}
+		return nil, apperrors.ValidationErrors{{Field: "wallet_id", Message: "wallet id is required"}}
 	}
 
 	wallet, err := s.walletStore.GetWalletByID(ctx, walletID, userID)
 	if err != nil {
-		return nil, map[string]string{"get_wallet": "no wallet found"}
+		return nil, apperrors.ErrWalletNotFound
 	}
 
-	return wallet, nil
+	return &dto.WalletResponse{
+		ID:        wallet.ID,
+		UserID:    wallet.UserID,
+		Name:      wallet.Name,
+		Balance:   wallet.Balance,
+		IsDefault: wallet.IsDefault,
+		CreatedAt: wallet.CreatedAt,
+	}, nil
 }
 
-func (s *WalletService) SetDefaultWallet(ctx context.Context, walletID string, userID string) map[string]string {
-	err := s.walletStore.SetDefaultWallet(ctx, userID, walletID)
-	if err != nil {
-		return map[string]string{"set_default_wallet": "failed to set default wallet"}
+func (s *WalletService) SetDefaultWallet(ctx context.Context, walletID string, userID string) error {
+	if err := s.walletStore.SetDefaultWallet(ctx, userID, walletID); err != nil {
+		return fmt.Errorf("set default wallet: %w", err)
 	}
 	return nil
 }
 
-func validateCreateWalletRequest(req *dto.WalletRequest) map[string]string {
-	errors := make(map[string]string)
+func validateCreateWalletRequest(req *dto.WalletRequest) apperrors.ValidationErrors {
+	var errors apperrors.ValidationErrors
 
 	if strings.TrimSpace(req.Name) == "" {
-		errors["name"] = "name is required"
-	}
-	if len(strings.TrimSpace(req.Name)) < 3 {
-		errors["name"] = "name must be at least 3 characters"
+		errors = append(errors, apperrors.FieldError{Field: "name", Message: "name is required"})
+	} else if len(strings.TrimSpace(req.Name)) < 3 {
+		errors = append(errors, apperrors.FieldError{Field: "name", Message: "name must be at least 3 characters"})
 	}
 	if strings.TrimSpace(req.UserID) == "" {
-		errors["user_id"] = "user_id is required"
+		errors = append(errors, apperrors.FieldError{Field: "user_id", Message: "user id is required"})
 	}
 
 	return errors
