@@ -25,5 +25,7 @@ func Setup(h *handler.Handler, jwtSecret []byte) *http.ServeMux {
 	mux.Handle("POST /transactions/deposit", authMW.Authenticate(http.HandlerFunc(h.Deposit)))
 	mux.Handle("GET /transactions", authMW.Authenticate(http.HandlerFunc(h.GetTransactions)))
 
+	mux.HandleFunc("POST /webhook/stripe", h.StripeWebhook)
+
 	return mux
 }

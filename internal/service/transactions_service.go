@@ -101,6 +101,10 @@ func (s *TransactionsService) Deposit(ctx context.Context, userID string, req *d
 	return stripeSession.URL, nil
 }
 
+func (s *TransactionsService) ProcessWebhookDeposit(ctx context.Context, walletID string, amount decimal.Decimal) error {
+	return s.transactionsStore.Deposit(ctx, walletID, amount)
+}
+
 func (s *TransactionsService) GetUserTransactions(ctx context.Context, userID string) ([]*dto.TransactionResponse, error) {
 	transactions, err := s.transactionsStore.GetUserTransactions(ctx, userID)
 	if err != nil {
