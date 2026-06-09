@@ -3,6 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+
+	"github.com/shopspring/decimal"
+	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/checkout/session"
 
 	"github.com/fathallah7/wallet-service/internal/apperrors"
 	"github.com/fathallah7/wallet-service/internal/dto"
@@ -45,24 +50,55 @@ func (s *TransactionsService) Transfer(ctx context.Context, userID string, req *
 	return nil
 }
 
-func (s *TransactionsService) Deposit(ctx context.Context, userID string, req *dto.DepositRequest) error {
+func (s *TransactionsService) Deposit(ctx context.Context, userID string, req *dto.DepositRequest) (string, error) {
 	if !req.Amount.IsPositive() {
-		return apperrors.ValidationErrors{{Field: "amount", Message: "amount must be greater than zero"}}
+		return "", apperrors.ValidationErrors{{Field: "amount", Message: "amount must be greater than zero"}}
 	}
 
 	wallet, err := s.walletStore.GetWalletByID(ctx, req.WalletID, userID)
 	if err != nil {
-		return apperrors.ErrWalletNotFound
+		return "", apperrors.ErrWalletNotFound
 	}
 	if wallet == nil {
-		return apperrors.ErrWalletNotFound
+		return "", apperrors.ErrWalletNotFound
 	}
 
-	if err := s.transactionsStore.Deposit(ctx, req.WalletID, req.Amount); err != nil {
-		return fmt.Errorf("deposit: %w", err)
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+
+	amountInCents := req.Amount.Mul(decimal.NewFromInt(100)).IntPart()
+
+	params := &stripe.CheckoutSessionParams{
+		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
+		Mode:               stripe.String(string(stripe.CheckoutSessionModePayment)),
+		SuccessURL:         stripe.String("https://github.com/fathallah7"), // TODO: replace with actual success URL
+		CancelURL:          stripe.String("https://github.com/fathallah7"), // TODO: replace with actual cancel URL
+		LineItems: []*stripe.CheckoutSessionLineItemParams{
+			{
+				PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+					Currency:   stripe.String("usd"),
+					UnitAmount: stripe.Int64(amountInCents),
+					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+						Name:        stripe.String("Wallet Refill"),
+						Description: stripe.String("Deposit to wallet"),
+					},
+				},
+				Quantity: stripe.Int64(1),
+			},
+		},
+
+		Metadata: map[string]string{
+			"wallet_id": req.WalletID,
+			"user_id":   userID,
+			"amount":    req.Amount.String(),
+		},
 	}
 
-	return nil
+	stripeSession, err := session.New(params)
+	if err != nil {
+		return "", fmt.Errorf("stripe session error: %w", err)
+	}
+
+	return stripeSession.URL, nil
 }
 
 func (s *TransactionsService) GetUserTransactions(ctx context.Context, userID string) ([]*dto.TransactionResponse, error) {

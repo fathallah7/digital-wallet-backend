@@ -42,11 +42,12 @@ func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.transactionsService.Deposit(r.Context(), userID, &req); WriteServiceError(w, err) {
+	checkoutURL, err := h.transactionsService.Deposit(r.Context(), userID, &req)
+	if WriteServiceError(w, err) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, nil, "deposit successful")
+	WriteJSON(w, http.StatusOK, map[string]string{"checkout_url": checkoutURL}, "deposit successful")
 }
 
 func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
