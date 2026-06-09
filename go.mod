@@ -9,3 +9,5 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	golang.org/x/crypto v0.52.0
 )
+
+require github.com/stripe/stripe-go/v76 v76.25.0 // indirect
