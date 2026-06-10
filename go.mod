@@ -10,4 +10,7 @@ require (
 	golang.org/x/crypto v0.52.0
 )
 
-require github.com/stripe/stripe-go/v76 v76.25.0 // indirect
+require (
+	github.com/stripe/stripe-go/v76 v76.25.0 // indirect
+	github.com/stripe/stripe-go/v86 v86.0.0 // indirect
+)
