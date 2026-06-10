@@ -8,8 +8,8 @@ import (
 
 	"github.com/fathallah7/wallet-service/internal/dto"
 	"github.com/shopspring/decimal"
-	"github.com/stripe/stripe-go/v76"
-	"github.com/stripe/stripe-go/v76/webhook"
+	"github.com/stripe/stripe-go/v86"
+	"github.com/stripe/stripe-go/v86/webhook"
 )
 
 func (h *Handler) Transfer(w http.ResponseWriter, r *http.Request) {
@@ -83,11 +83,14 @@ func (h *Handler) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 	endpointSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	signature := r.Header.Get("Stripe-Signature")
 
-	event, err := webhook.ConstructEvent(payload, signature, endpointSecret)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	event, err := webhook.ConstructEventWithOptions(
+		payload,
+		signature,
+		endpointSecret,
+		webhook.ConstructEventOptions{
+			IgnoreAPIVersionMismatch: true,
+		},
+	)
 
 	if event.Type == "checkout.session.completed" {
 		var session stripe.CheckoutSession
