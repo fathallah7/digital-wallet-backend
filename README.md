@@ -30,6 +30,7 @@
 - **Race Condition Protection** — Row-level `FOR UPDATE` locking + database transactions
 - **Idempotent Validation** — Wallet limits enforced at both application and database levels
 - **Precision Money Handling** — All financial values use `decimal.Decimal` to avoid floating-point errors
+- **Stripe Payment Gateway** — Deposit funds via Stripe Checkout Sessions with webhook confirmation
 
 ---
 
@@ -71,6 +72,7 @@
 | [shopspring/decimal](https://github.com/shopspring/decimal) | Arbitrary-precision decimal arithmetic for financial values |
 | [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)     | Password hashing                                            |
 | [godotenv](https://github.com/joho/godotenv)                | Environment variable loading                                |
+| [Stripe Go SDK](https://github.com/stripe/stripe-go)       | Payment processing via Stripe Checkout + Webhooks           |
 
 ---
 
@@ -302,6 +304,8 @@ Response: `200 OK`
 
 #### Deposit
 
+Initiates a deposit by creating a Stripe Checkout Session. The user is redirected to the returned `checkout_url` to complete payment via Stripe.
+
 ```
 POST /transactions/deposit
 ```
@@ -321,7 +325,9 @@ Response: `200 OK`
 {
   "success": true,
   "message": "deposit successful",
-  "data": null
+  "data": {
+    "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_..."
+  }
 }
 ```
 
@@ -350,6 +356,22 @@ Response: `200 OK`
   ]
 }
 ```
+
+---
+
+### Payments
+
+#### Stripe Webhook
+
+> Public endpoint — Stripe posts here after payment events. No auth required.
+
+```
+POST /webhook/stripe
+```
+
+Stripe sends events (e.g. `checkout.session.completed`) to this endpoint. On successful payment, the wallet balance is updated and a deposit transaction record is created.
+
+Response: `200 OK`
 
 ---
 
@@ -387,9 +409,11 @@ cp .env.example .env
 PORT=:8080
 DB_DSN=postgres://postgres:yourpassword@localhost:5432/wallet_service?sslmode=disable
 JWT_SECRET=your-256-bit-secret-here
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-> **Security tip**: Generate a strong JWT secret with `openssl rand -base64 32`.
+> **Security tip**: Generate a strong JWT secret with `openssl rand -base64 32`. Stripe keys are read directly from environment variables.
 
 ### 4. Run migrations
 
@@ -523,24 +547,6 @@ CREATE TABLE transactions (
 | `make migrateup`          | Run all pending migrations |
 | `make migratedown`        | Rollback all migrations    |
 | `make migration name=xxx` | Create a new migration     |
-
-| `make install-tools` \* — `SELECT ... FOR UPDATE` prevents race conditions during transfers
-
-- **Request Size Limits** — 1 MB max request body
-- **Input Validation** — All inputs validated before processing
-- **Sensitive Field Protection** — `password_hash` excluded from JSON responses
-
----
-
-## Makefile Commands
-
-| Command                    | Description                |
-| -------------------------- | -------------------------- |
-| `make run`                 | Start the API server       |
-| `make migrateup`           | Run all pending migrations |
-| `make migratedown`         | Rollback all migrations    |
-| `make migration name=xxx`  | Create a new migration     |
-| `make install-tools` =xxx` | Create a new migration     |
-| `make install-tools`       | Install migration CLI tool |
+| `make install-tools`      | Install migration CLI tool |
 
 
